@@ -46,14 +46,16 @@ SOURCES += \
     demod_afsk24_3.c \
     demod_afsk24_2.c \
     demod_afsk12.c \
+    demod_flex.c \
+    BCHCode.c \
     costabi.c \
     costabf.c \
     clip.c \
     fms.c \
     demod_eas.c \
     demod_morse.c \
-    demod_dumpcsv.c
-
+    demod_dumpcsv.c \
+    demod_x10.c
 
 macx{
 DEFINES += DUMMY_AUDIO
@@ -80,7 +82,7 @@ unix:freebsd-g++:!symbian:!macx{
 #DEFINES += ARCH_I386
 DEFINES += PULSE_AUDIO
 DEFINES += CHARSET_UTF8
-LIBS += -L/usr/local/lib -LX11 -lpulse-simple -lpulse
+LIBS += -L/usr/local/lib -lX11 -lpulse-simple -lpulse
 SOURCES +=  xdisplay.c \
             demod_display.c
 }

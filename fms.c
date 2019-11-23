@@ -56,7 +56,7 @@ static void fms_disp_state_id(uint8_t state_id, uint8_t loc_id)
     {
         case 0x0: verbprintf(0, "Sachsen         \t"); break;
         case 0x1: verbprintf(0, "Bund            \t"); break;
-        case 0x2: verbprintf(0, "Baden-Würtemberg\t"); break;
+        case 0x2: verbprintf(0, "Baden-Wurtemberg\t"); break;
         case 0x3: verbprintf(0, "Bayern 1        \t"); break;
         case 0x4: verbprintf(0, "Berlin          \t"); break;
         case 0x5: verbprintf(0, "Bremen          \t"); break;
@@ -69,12 +69,20 @@ static void fms_disp_state_id(uint8_t state_id, uint8_t loc_id)
         case 0xc: verbprintf(0, "Saarland        \t"); break;
         case 0xd: verbprintf(0, "Bayern 2        \t"); break;
         case 0xe: if (loc_id < 50) verbprintf(0, "Meckl-Vorpommern\t"); else verbprintf(0, "Sachsen-Anhalt  \t"); break;
-        case 0xf: if (loc_id < 50) verbprintf(0, "Brandenburg     \t"); else verbprintf(0, "Thüringen       \t"); break;
+        case 0xf: if (loc_id < 50) verbprintf(0, "Brandenburg     \t"); else verbprintf(0, "Thuringen       \t"); break;
     }
 }
 
 static void fms_disp_loc_id(uint8_t loc_id)
 {
+    //fix due to wrong location id
+    //now we are according to TR-BOS
+    uint8_t tmp = 0;
+    tmp = loc_id;
+    loc_id <<= 4;
+    tmp >>= 4;
+    loc_id = loc_id^tmp;
+    
     verbprintf(0, "Ort 0x%2x=%03d\t", loc_id, loc_id);
 }
 
@@ -85,10 +93,10 @@ static void fms_disp_vehicle_id(uint16_t vehicle_id)
     uint8_t nib2 = (vehicle_id >> 8) & 0xF;
     uint8_t nib3 = (vehicle_id >> 12) & 0xF;
 
-    verbprintf(0, "FZG %1d%1d%1d%1d\t", nib0, nib1, nib2, nib3);
+    verbprintf(0, "FZG %1x%1x%1x%1x\t", nib0, nib1, nib2, nib3);
 }
 
-static void fms_disp_state(uint8_t state, uint8_t service_id, uint8_t direction)
+static void fms_disp_state(uint8_t state, uint8_t direction)
 {
     verbprintf(0, "Status %1x=", state);
 
@@ -122,8 +130,8 @@ static void fms_disp_state(uint8_t state, uint8_t service_id, uint8_t direction)
         {
             case 0x0: verbprintf(0, "StatusAbfrage \t"); break;
             case 0x1: verbprintf(0, "SammelRuf     \t"); break;
-            case 0x2: verbprintf(0, "Einrücken/Abbr\t"); break; // Einrücken / Einsatz abgebrochen
-            case 0x3: verbprintf(0, "Übernahme     \t"); break; // Melden für Einsatzübernahme
+            case 0x2: verbprintf(0, "Einrucken/Abbr\t"); break; // Einrücken / Einsatz abgebrochen
+            case 0x3: verbprintf(0, "Ubernahme     \t"); break; // Melden für Einsatzübernahme
             case 0x4: verbprintf(0, "Kommen Draht  \t"); break; // "Kommen Sie über Draht"
             case 0x5: verbprintf(0, "Fahre Wache   \t"); break; // "Fahren Sie Wache an"
             case 0x6: verbprintf(0, "Sprechaufford \t"); break; // Sprechaufforderung
@@ -229,6 +237,7 @@ static char fms_is_crc_correct(uint64_t message)
     {
         if (crc[i])
         {
+            fms_print_crc(crc);
             return 0;
         }
     }
@@ -245,7 +254,7 @@ static void fms_disp_packet(uint64_t message)
     uint8_t loc_id;      // Ortskennung
     uint16_t vehicle_id; // Fahrzeugkennung
     uint8_t state;       // Status
-    uint8_t model;       // Baustufenkennung
+    // uint8_t model;       // Baustufenkennung
     uint8_t direction;   // Richtungskennung
     uint8_t short_info;  // taktische Kurzinformation
     uint8_t crc;         // Redundanz
@@ -267,16 +276,16 @@ static void fms_disp_packet(uint64_t message)
 
     state = (message >> 48) & 0xF;
 
-    model = (message >> 49) & 0x1;
-    direction = (message >> 50) & 0x1;
-    fms_disp_state(state, service_id, direction);
+    //model = (message >> 52) & 0x1;
+    direction = (message >> 53) & 0x1;
+    fms_disp_state(state, direction);
 
     fms_disp_direction(direction);
 
-    short_info = (message >> 51) & 0x3;
+    short_info = (message >> 54) & 0x3;
     fms_disp_shortinfo(short_info);
 
-    crc = (message >> 54) & 0x3F;
+    crc = (message >> 55) & 0x3F;
 
     verbprintf(0, ") ");
 
@@ -290,7 +299,7 @@ static void fms_disp_packet(uint64_t message)
     }
     else
     {
-        verbprintf(0, "CRC INCORRECT");
+        verbprintf(0, "CRC INCORRECT (%x)", crc);
     }
     verbprintf(0, "\n");
 }
@@ -349,7 +358,7 @@ void fms_rxbit(struct demod_state *s, int bit)
                     {
                         verbprintf(2, "FMS was able to correct a one bit error by swapping bit %d Original packet:\n", i);
                         fms_disp_packet(s->l2.fmsfsk.rxbitstream);
-                        s->l2.fmsfsk.rxbitstream = (msg ^ (1 << (i+16)) | 1); // lowest bit set means that the CRC has been corrected by us
+                        s->l2.fmsfsk.rxbitstream = (msg ^ (1 << (i+16))) | 1; // lowest bit set means that the CRC has been corrected by us
                         break;
                     }
                     i++;

@@ -11,10 +11,11 @@ else( NOT WIN32 )
 endif( NOT WIN32 )
 
 set( TARGET "${PROJECT_NAME}" )
-set( VERSION "1.0.0" )
+set( VERSION "1.1.8" )
 set( MAJOR "1" )
-set( MINOR "0" )
-set( PATCH "0" )
+set( MINOR "1" )
+set( PATCH "8" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra" )
 
 if( WIN32 )
 	add_definitions( "-DWIN32_AUDIO" "-DONLY_RAW" "-DWINDOWS" )
@@ -33,6 +34,12 @@ elseif( UNIX )
 		option( PULSE_AUDIO_SUPPORT "Enable pulse audio support" ${PULSEAUDIO_FOUND} )
 		mark_as_advanced( PULSE_AUDIO_SUPPORT )
 	endif( PULSEAUDIO_FOUND )
+
+	# Check if we can use the GCC/llvm __builtin_popcount
+	include( CheckCSourceCompiles )
+	check_c_source_compiles(
+		"int main() { __builtin_popcount(42); return 0; }" USE_BUILTIN_POPCOUNT )
+
 endif( WIN32 )
 
 if( X11_SUPPORT )
@@ -48,7 +55,8 @@ endif( X11_SUPPORT )
 
 if( PULSE_AUDIO_SUPPORT )
 	include_directories( ${PULSEAUDIO_INCLUDE_DIR} )
-	link_libraries( ${PULSEAUDIO_LIBRARY} "-lpulse-simple" )
+	find_library( PULSE_SIMPLE NAMES pulse-simple REQUIRED )
+	link_libraries( ${PULSEAUDIO_LIBRARY} ${PULSE_SIMPLE} )
 	add_definitions( "-DPULSE_AUDIO" )
 else( PULSE_AUDIO_SUPPORT )
 	add_definitions( "-DDUMMY_AUDIO" )
@@ -58,6 +66,15 @@ if( NOT MSVC )
 	add_definitions( "-std=gnu99" )
 endif( NOT MSVC )
 add_definitions( "-DMAX_VERBOSE_LEVEL=3" "-DCHARSET_UTF8" )
+
+if ( EXISTS "${multimon-ng_SOURCE_DIR}/BCHCode.c" )
+	set( SOURCES ${SOURCES}
+		BCHCode.c )
+else()
+	message(STATUS "Using the BCH decoder stub")
+	set( SOURCES ${SOURCES}
+		BCHCode_stub.c )
+endif()
 
 set( HEADERS ${HEADERS}
     	multimon.h
@@ -93,6 +110,7 @@ set( SOURCES ${SOURCES}
 	demod_afsk24_3.c
 	demod_afsk24_2.c
 	demod_afsk12.c
+	demod_flex.c
 	costabi.c
 	costabf.c
 	clip.c
@@ -100,10 +118,12 @@ set( SOURCES ${SOURCES}
 	demod_eas.c
 	demod_morse.c
 	demod_dumpcsv.c
+	demod_x10.c
 	)
 
 
 add_executable( "${TARGET}" ${SOURCES} ${HEADERS} )
 set_property(TARGET "${TARGET}" PROPERTY LINKER_LANGUAGE C)
 target_link_libraries( "${TARGET}" m )
+install(TARGETS multimon-ng DESTINATION bin)
 
